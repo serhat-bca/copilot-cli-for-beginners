@@ -84,6 +84,19 @@ function handleRemove() {
   });
 }
 
+async function handleMarkAsRead() {
+  console.log("\nMark a Book as Read\n");
+
+  const title = await prompt("Enter the title of the book to mark as read: ");
+  const marked = collection.markAsRead(title);
+
+  if (marked) {
+    console.log("\nBook marked as read.\n");
+  } else {
+    console.log("\nBook not found.\n");
+  }
+}
+
 async function handleFind() {
   console.log("\nFind Books by Author\n");
 
@@ -101,6 +114,7 @@ Commands:
   list     - Show all books
   statistics - Show collection statistics
   add      - Add a new book
+  mark-as-read - Mark a book as read
   remove   - Remove a book by title
   find     - Find books by author
   help     - Show this help message
@@ -126,6 +140,9 @@ async function main() {
       break;
     case "add":
       await handleAdd();
+      break;
+    case "mark-as-read":
+      await handleMarkAsRead();
       break;
     case "remove":
       await handleRemove();

@@ -1,5 +1,6 @@
 const { describe, it, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
+const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -33,6 +34,9 @@ describe("BookCollection", () => {
     assert.equal(result, true);
     const book = collection.findBookByTitle("Dune");
     assert.equal(book.read, true);
+
+    const reloadedCollection = new BookCollection(tempFile);
+    assert.equal(reloadedCollection.findBookByTitle("Dune").read, true);
   });
 
   it("should return false when marking a nonexistent book as read", () => {
@@ -71,6 +75,28 @@ describe("getBookStatistics", () => {
       unreadCount: 1,
       oldest: books[2],
       newest: books[0],
+    });
+  });
+
+  describe("CLI", () => {
+    it("should mark a book as read through the mark-as-read command", () => {
+      const appDir = fs.mkdtempSync(path.join(os.tmpdir(), "book-cli-test-"));
+      fs.copyFileSync(path.join(__dirname, "..", "book_app.js"), path.join(appDir, "book_app.js"));
+      fs.copyFileSync(path.join(__dirname, "..", "books.js"), path.join(appDir, "books.js"));
+      fs.writeFileSync(
+        path.join(appDir, "data.json"),
+        JSON.stringify([{ title: "Dune", author: "Frank Herbert", year: 1965, read: false }])
+      );
+
+      const result = spawnSync(process.execPath, ["book_app.js", "mark-as-read"], {
+        cwd: appDir,
+        input: "Dune\n",
+        encoding: "utf-8",
+      });
+
+      assert.equal(result.status, 0);
+      assert.match(result.stdout, /Book marked as read/);
+      assert.equal(JSON.parse(fs.readFileSync(path.join(appDir, "data.json"), "utf-8"))[0].read, true);
     });
   });
 

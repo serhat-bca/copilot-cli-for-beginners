@@ -31,10 +31,14 @@ It can add, remove, and list books. Also mark them as read.
 node book_app.js list
 node book_app.js statistics
 node book_app.js add
+node book_app.js mark-as-read
 node book_app.js find
 node book_app.js remove
 node book_app.js help
 ```
+
+The `mark-as-read` command prompts you for a book title and saves its read
+status to `data.json`.
 
 ## Running Tests
 
