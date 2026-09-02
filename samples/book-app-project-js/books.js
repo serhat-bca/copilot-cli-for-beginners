@@ -86,4 +86,23 @@ class BookCollection {
   }
 }
 
-module.exports = { Book, BookCollection, DATA_FILE };
+function getBookStatistics(books) {
+  const bookList = Array.isArray(books) ? books : [];
+  const readCount = bookList.filter((book) => book.read).length;
+
+  return {
+    totalCount: bookList.length,
+    readCount,
+    unreadCount: bookList.length - readCount,
+    oldest: bookList.reduce(
+      (oldest, book) => (!oldest || book.year < oldest.year ? book : oldest),
+      null
+    ),
+    newest: bookList.reduce(
+      (newest, book) => (!newest || book.year > newest.year ? book : newest),
+      null
+    ),
+  };
+}
+
+module.exports = { Book, BookCollection, DATA_FILE, getBookStatistics };

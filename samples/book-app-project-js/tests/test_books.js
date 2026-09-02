@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { BookCollection } = require("../books");
+const { BookCollection, getBookStatistics } = require("../books");
 
 let tempFile;
 
@@ -54,5 +54,33 @@ describe("BookCollection", () => {
     const collection = new BookCollection(tempFile);
     const result = collection.removeBook("Nonexistent Book");
     assert.equal(result, false);
+  });
+});
+
+describe("getBookStatistics", () => {
+  it("should return counts and oldest and newest books", () => {
+    const books = [
+      { title: "Dune", year: 1965, read: true },
+      { title: "1984", year: 1949, read: false },
+      { title: "The Hobbit", year: 1937, read: true },
+    ];
+
+    assert.deepEqual(getBookStatistics(books), {
+      totalCount: 3,
+      readCount: 2,
+      unreadCount: 1,
+      oldest: books[2],
+      newest: books[0],
+    });
+  });
+
+  it("should return zero counts and no oldest or newest book for an empty list", () => {
+    assert.deepEqual(getBookStatistics([]), {
+      totalCount: 0,
+      readCount: 0,
+      unreadCount: 0,
+      oldest: null,
+      newest: null,
+    });
   });
 });

@@ -1,5 +1,5 @@
 const readline = require("readline");
-const { BookCollection } = require("./books");
+const { BookCollection, getBookStatistics } = require("./books");
 
 const collection = new BookCollection();
 
@@ -22,6 +22,26 @@ function showBooks(books) {
 function handleList() {
   const books = collection.listBooks();
   showBooks(books);
+}
+
+function handleStatistics() {
+  const statistics = getBookStatistics(collection.listBooks());
+  const oldest = statistics.oldest
+    ? `${statistics.oldest.title} (${statistics.oldest.year})`
+    : "None";
+  const newest = statistics.newest
+    ? `${statistics.newest.title} (${statistics.newest.year})`
+    : "None";
+
+  console.log(`
+Book Collection Statistics
+
+Total books: ${statistics.totalCount}
+Read: ${statistics.readCount}
+Unread: ${statistics.unreadCount}
+Oldest: ${oldest}
+Newest: ${newest}
+`);
 }
 
 function prompt(question) {
@@ -79,6 +99,7 @@ Book Collection Helper
 
 Commands:
   list     - Show all books
+  statistics - Show collection statistics
   add      - Add a new book
   remove   - Remove a book by title
   find     - Find books by author
@@ -99,6 +120,9 @@ async function main() {
   switch (command) {
     case "list":
       handleList();
+      break;
+    case "statistics":
+      handleStatistics();
       break;
     case "add":
       await handleAdd();

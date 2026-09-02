@@ -29,6 +29,7 @@ It can add, remove, and list books. Also mark them as read.
 
 ```bash
 node book_app.js list
+node book_app.js statistics
 node book_app.js add
 node book_app.js find
 node book_app.js remove
