@@ -5,8 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from books import BookCollection
 import books
+from books import BookCollection
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +46,22 @@ class TestBookCollectionInitialization:
 
         assert collection.list_books() == []
         assert "corrupted" in capsys.readouterr().out
+
+    def test_loads_saved_fields_including_read_status(
+        self, tmp_path, monkeypatch
+    ):
+        data_file = tmp_path / "data.json"
+        data_file.write_text(
+            '[{"title": "Dune", "author": "Frank Herbert", '
+            '"year": 1965, "read": true}]'
+        )
+        monkeypatch.setattr(books, "DATA_FILE", str(data_file))
+
+        collection = BookCollection()
+
+        assert collection.list_books() == [
+            books.Book("Dune", "Frank Herbert", 1965, True)
+        ]
 
 
 class TestAddBook:
@@ -91,15 +107,21 @@ class TestAddBook:
         assert reloaded.find_book_by_title("The Hobbit") is not None
         assert reloaded.find_book_by_title("The Hobbit").year == 1937
 
+    def test_allows_duplicate_titles_as_separate_books(self, collection):
+        first = collection.add_book("Dune", "Frank Herbert", 1965)
+        second = collection.add_book("Dune", "Brian Herbert", 1999)
+
+        assert collection.list_books() == [first, second]
+
 
 class TestFindBookByTitle:
     """Tests for title searches."""
 
-    @pytest.mark.parametrize("query", ["1984", "NINETEEN84", " 1984 "])
+    @pytest.mark.parametrize("query", ["1984", "nInEtEeN84", " 1984 "])
     def test_finds_matching_title_case_insensitively(
         self, collection, query
     ):
-        title = "NINETEEN84" if query == "NINETEEN84" else "1984"
+        title = "NINETEEN84" if query == "nInEtEeN84" else "1984"
         collection.add_book(title, "George Orwell", 1949)
 
         result = collection.find_book_by_title(query)
@@ -109,6 +131,15 @@ class TestFindBookByTitle:
         else:
             assert result is not None
             assert result.title == title
+
+    def test_returns_first_match_when_titles_are_duplicated(self, collection):
+        collection.add_book("Dune", "Frank Herbert", 1965)
+        collection.add_book("Dune", "Brian Herbert", 1999)
+
+        result = collection.find_book_by_title("DUNE")
+
+        assert result is not None
+        assert result.author == "Frank Herbert"
 
     @pytest.mark.parametrize("query", ["", "Missing"])
     def test_returns_none_for_empty_collection_or_missing_title(
@@ -145,6 +176,13 @@ class TestFindByAuthor:
 
         assert collection.find_by_author("Frank Herbert") == []
 
+    def test_matches_books_with_empty_author(self, collection):
+        collection.add_book("Untitled", "", 2024)
+
+        result = collection.find_by_author("")
+
+        assert [book.title for book in result] == ["Untitled"]
+
 
 class TestMarkAsRead:
     """Tests for changing a book's read status."""
@@ -155,6 +193,13 @@ class TestMarkAsRead:
         result = collection.mark_as_read("dUnE")
 
         assert result is True
+        assert collection.find_book_by_title("Dune").read is True
+
+    def test_marking_a_book_twice_remains_successful_and_read(self, collection):
+        collection.add_book("Dune", "Frank Herbert", 1965)
+
+        assert collection.mark_as_read("Dune") is True
+        assert collection.mark_as_read("Dune") is True
         assert collection.find_book_by_title("Dune").read is True
 
     def test_marked_status_is_persisted(self, collection):
@@ -191,6 +236,14 @@ class TestRemoveBook:
 
         assert collection.remove_book("1984") is True
         assert [book.title for book in collection.list_books()] == ["Dune"]
+
+    def test_removes_only_the_first_duplicate_title(self, collection):
+        first = collection.add_book("Dune", "Frank Herbert", 1965)
+        second = collection.add_book("Dune", "Brian Herbert", 1999)
+
+        assert collection.remove_book("Dune") is True
+        assert collection.list_books() == [second]
+        assert first not in collection.list_books()
 
     def test_removal_is_persisted(self, collection):
         collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
