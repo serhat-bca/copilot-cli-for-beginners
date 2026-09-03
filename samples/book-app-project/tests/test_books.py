@@ -1,10 +1,12 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-import books
+
 from books import BookCollection
+import books
 
 
 @pytest.fixture(autouse=True)
@@ -15,39 +17,190 @@ def use_temp_data_file(tmp_path, monkeypatch):
     monkeypatch.setattr(books, "DATA_FILE", str(temp_file))
 
 
-def test_add_book():
-    collection = BookCollection()
-    initial_count = len(collection.books)
-    collection.add_book("1984", "George Orwell", 1949)
-    assert len(collection.books) == initial_count + 1
-    book = collection.find_book_by_title("1984")
-    assert book is not None
-    assert book.author == "George Orwell"
-    assert book.year == 1949
-    assert book.read is False
+@pytest.fixture
+def collection():
+    """Provide an empty collection backed by the test data file."""
+    return BookCollection()
 
-def test_mark_book_as_read():
-    collection = BookCollection()
-    collection.add_book("Dune", "Frank Herbert", 1965)
-    result = collection.mark_as_read("Dune")
-    assert result is True
-    book = collection.find_book_by_title("Dune")
-    assert book.read is True
 
-def test_mark_book_as_read_invalid():
-    collection = BookCollection()
-    result = collection.mark_as_read("Nonexistent Book")
-    assert result is False
+class TestBookCollectionInitialization:
+    """Tests for loading book data."""
 
-def test_remove_book():
-    collection = BookCollection()
-    collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
-    result = collection.remove_book("The Hobbit")
-    assert result is True
-    book = collection.find_book_by_title("The Hobbit")
-    assert book is None
+    def test_starts_empty_when_data_file_contains_empty_list(self, collection):
+        assert collection.list_books() == []
 
-def test_remove_book_invalid():
-    collection = BookCollection()
-    result = collection.remove_book("Nonexistent Book")
-    assert result is False
+    def test_starts_empty_when_data_file_is_missing(self, tmp_path, monkeypatch):
+        missing_file = tmp_path / "missing.json"
+        monkeypatch.setattr(books, "DATA_FILE", str(missing_file))
+
+        assert BookCollection().list_books() == []
+
+    def test_starts_empty_when_data_file_is_corrupted(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        corrupted_file = tmp_path / "data.json"
+        corrupted_file.write_text("{not valid json")
+        monkeypatch.setattr(books, "DATA_FILE", str(corrupted_file))
+
+        collection = BookCollection()
+
+        assert collection.list_books() == []
+        assert "corrupted" in capsys.readouterr().out
+
+
+class TestAddBook:
+    """Tests for adding books."""
+
+    def test_adds_book_with_expected_fields(self, collection):
+        result = collection.add_book("1984", "George Orwell", 1949)
+
+        assert result.title == "1984"
+        assert result.author == "George Orwell"
+        assert result.year == 1949
+        assert result.read is False
+        assert collection.list_books() == [result]
+
+    def test_adds_multiple_books_in_insertion_order(self, collection):
+        first = collection.add_book("1984", "George Orwell", 1949)
+        second = collection.add_book("Dune", "Frank Herbert", 1965)
+
+        assert collection.list_books() == [first, second]
+
+    @pytest.mark.parametrize(
+        ("title", "author"),
+        [
+            ("", "Author"),
+            ("Title", ""),
+            ("", ""),
+        ],
+    )
+    def test_adds_books_with_empty_text_fields(
+        self, collection, title, author
+    ):
+        result = collection.add_book(title, author, 0)
+
+        assert result.title == title
+        assert result.author == author
+        assert len(collection.list_books()) == 1
+
+    def test_added_book_is_persisted(self, collection):
+        collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
+
+        reloaded = BookCollection()
+
+        assert reloaded.find_book_by_title("The Hobbit") is not None
+        assert reloaded.find_book_by_title("The Hobbit").year == 1937
+
+
+class TestFindBookByTitle:
+    """Tests for title searches."""
+
+    @pytest.mark.parametrize("query", ["1984", "NINETEEN84", " 1984 "])
+    def test_finds_matching_title_case_insensitively(
+        self, collection, query
+    ):
+        title = "NINETEEN84" if query == "NINETEEN84" else "1984"
+        collection.add_book(title, "George Orwell", 1949)
+
+        result = collection.find_book_by_title(query)
+
+        if query == " 1984 ":
+            assert result is None
+        else:
+            assert result is not None
+            assert result.title == title
+
+    @pytest.mark.parametrize("query", ["", "Missing"])
+    def test_returns_none_for_empty_collection_or_missing_title(
+        self, collection, query
+    ):
+        assert collection.find_book_by_title(query) is None
+
+    def test_returns_none_when_title_does_not_match(self, collection):
+        collection.add_book("1984", "George Orwell", 1949)
+
+        assert collection.find_book_by_title("Animal Farm") is None
+
+
+class TestFindByAuthor:
+    """Tests for author searches."""
+
+    def test_finds_all_books_by_author_case_insensitively(self, collection):
+        collection.add_book("1984", "George Orwell", 1949)
+        collection.add_book("Animal Farm", "George Orwell", 1945)
+        collection.add_book("Dune", "Frank Herbert", 1965)
+
+        result = collection.find_by_author("gEoRgE oRwElL")
+
+        assert [book.title for book in result] == ["1984", "Animal Farm"]
+
+    @pytest.mark.parametrize("author", ["", "Unknown"])
+    def test_returns_empty_list_for_empty_collection_or_missing_author(
+        self, collection, author
+    ):
+        assert collection.find_by_author(author) == []
+
+    def test_returns_empty_list_when_author_has_no_matches(self, collection):
+        collection.add_book("1984", "George Orwell", 1949)
+
+        assert collection.find_by_author("Frank Herbert") == []
+
+
+class TestMarkAsRead:
+    """Tests for changing a book's read status."""
+
+    def test_marks_matching_book_as_read(self, collection):
+        collection.add_book("Dune", "Frank Herbert", 1965)
+
+        result = collection.mark_as_read("dUnE")
+
+        assert result is True
+        assert collection.find_book_by_title("Dune").read is True
+
+    def test_marked_status_is_persisted(self, collection):
+        collection.add_book("Dune", "Frank Herbert", 1965)
+        collection.mark_as_read("Dune")
+
+        reloaded = BookCollection()
+
+        assert reloaded.find_book_by_title("Dune").read is True
+
+    @pytest.mark.parametrize("title", ["Missing", ""])
+    def test_returns_false_without_changing_empty_or_missing_collection(
+        self, collection, title
+    ):
+        assert collection.mark_as_read(title) is False
+        assert collection.list_books() == []
+
+
+class TestRemoveBook:
+    """Tests for removing books."""
+
+    def test_removes_matching_book(self, collection):
+        collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
+
+        result = collection.remove_book("the hobbit")
+
+        assert result is True
+        assert collection.find_book_by_title("The Hobbit") is None
+        assert collection.list_books() == []
+
+    def test_removes_only_the_matching_book(self, collection):
+        collection.add_book("1984", "George Orwell", 1949)
+        collection.add_book("Dune", "Frank Herbert", 1965)
+
+        assert collection.remove_book("1984") is True
+        assert [book.title for book in collection.list_books()] == ["Dune"]
+
+    def test_removal_is_persisted(self, collection):
+        collection.add_book("The Hobbit", "J.R.R. Tolkien", 1937)
+        collection.remove_book("The Hobbit")
+
+        assert BookCollection().list_books() == []
+
+    @pytest.mark.parametrize("title", ["Missing", ""])
+    def test_returns_false_without_changing_empty_or_missing_collection(
+        self, collection, title
+    ):
+        assert collection.remove_book(title) is False
+        assert collection.list_books() == []
