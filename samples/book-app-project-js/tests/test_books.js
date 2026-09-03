@@ -83,6 +83,7 @@ describe("getBookStatistics", () => {
       const appDir = fs.mkdtempSync(path.join(os.tmpdir(), "book-cli-test-"));
       fs.copyFileSync(path.join(__dirname, "..", "book_app.js"), path.join(appDir, "book_app.js"));
       fs.copyFileSync(path.join(__dirname, "..", "books.js"), path.join(appDir, "books.js"));
+      fs.copyFileSync(path.join(__dirname, "..", "utils.js"), path.join(appDir, "utils.js"));
       fs.writeFileSync(
         path.join(appDir, "data.json"),
         JSON.stringify([{ title: "Dune", author: "Frank Herbert", year: 1965, read: false }])

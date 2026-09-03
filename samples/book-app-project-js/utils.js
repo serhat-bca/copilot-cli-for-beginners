@@ -9,15 +9,18 @@ function printMenu() {
 
 function printBooks(books) {
   if (!books || books.length === 0) {
-    console.log("No books in your collection.");
+    console.log("No books found.");
     return;
   }
 
-  console.log("\nYour Books:");
+  console.log("\nYour Book Collection:\n");
+
   books.forEach((book, index) => {
-    const status = book.read ? "✅ Read" : "📖 Unread";
-    console.log(`${index + 1}. ${book.title} by ${book.author} (${book.year}) - ${status}`);
+    const status = book.read ? "✓" : " ";
+    console.log(`${index + 1}. [${status}] ${book.title} by ${book.author} (${book.year})`);
   });
+
+  console.log();
 }
 
 module.exports = { printMenu, printBooks };

@@ -1,27 +1,12 @@
 const readline = require("readline");
 const { BookCollection, getBookStatistics } = require("./books");
+const { printBooks } = require("./utils");
 
 const collection = new BookCollection();
 
-function showBooks(books) {
-  if (!books || books.length === 0) {
-    console.log("No books found.");
-    return;
-  }
-
-  console.log("\nYour Book Collection:\n");
-
-  books.forEach((book, index) => {
-    const status = book.read ? "✓" : " ";
-    console.log(`${index + 1}. [${status}] ${book.title} by ${book.author} (${book.year})`);
-  });
-
-  console.log();
-}
-
 function handleList() {
   const books = collection.listBooks();
-  showBooks(books);
+  printBooks(books);
 }
 
 function handleStatistics() {
@@ -103,7 +88,7 @@ async function handleFind() {
   const author = await prompt("Author name: ");
   const books = collection.findByAuthor(author);
 
-  showBooks(books);
+  printBooks(books);
 }
 
 function showHelp() {

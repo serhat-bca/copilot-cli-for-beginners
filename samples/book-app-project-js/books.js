@@ -65,6 +65,7 @@ class BookCollection {
     const book = this.findBookByTitle(title);
     if (book) {
       book.read = true;
+      
       this.saveBooks();
       return true;
     }
