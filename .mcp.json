@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/sersen/Desktop/sandbox/Agentic Web Dev/copilot-cli-for-beginners"
+      ],
+      "tools": ["*"]
+    }
+  }
+}
